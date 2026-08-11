@@ -22,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 
+        $middleware->api(append: [
+            \Illuminate\Cookie\Middleware\EncryptCookies::class,
+            \Illuminate\Session\Middleware\StartSession::class,
+        ]);
+
         $middleware->alias([
             'store.owner' => \App\Http\Middleware\EnsureStoreOwnership::class,
             'seller' => \App\Http\Middleware\EnsureUserIsSeller::class,
