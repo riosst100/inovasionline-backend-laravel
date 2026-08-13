@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'store.owner' => \App\Http\Middleware\EnsureStoreOwnership::class,
             'seller' => \App\Http\Middleware\EnsureUserIsSeller::class,
+            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravolt\Indonesia\Models\City;
 
 class Store extends Model
 {
@@ -30,6 +31,7 @@ class Store extends Model
         'address',
         'province',
         'city',
+        'city_code',
         'district',
         'postal_code',
         'latitude',
@@ -64,6 +66,11 @@ class Store extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function cityRegion(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_code', 'code');
     }
 
     public function members(): HasMany

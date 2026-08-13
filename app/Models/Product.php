@@ -96,6 +96,6 @@ class Product extends Model
 
     public function promotions(): BelongsToMany
     {
-        return $this->belongsToMany(Promotion::class, 'promotion_products');
+        return $this->belongsToMany(Promotion::class, 'promotion_products')->using(PromotionProduct::class);
     }
 }

@@ -17,6 +17,7 @@ class Promotion extends Model
 
     protected $fillable = [
         'store_id',
+        'flash_sale_slot_id',
         'name',
         'code',
         'type',
@@ -49,6 +50,11 @@ class Promotion extends Model
         return $this->belongsTo(Store::class);
     }
 
+    public function flashSaleSlot(): BelongsTo
+    {
+        return $this->belongsTo(FlashSaleSlot::class);
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
@@ -56,7 +62,7 @@ class Promotion extends Model
 
     public function products(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class, 'promotion_products');
+        return $this->belongsToMany(Product::class, 'promotion_products')->using(PromotionProduct::class);
     }
 
     public function categories(): BelongsToMany
