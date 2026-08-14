@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use App\Support\Responses\ApiResponse;
@@ -60,6 +61,13 @@ class AuthController extends Controller
     public function user(Request $request): JsonResponse
     {
         return ApiResponse::success(new UserResource($request->user()->load('seller')), 'User retrieved successfully.');
+    }
+
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $request->user()->update($request->validated());
+
+        return ApiResponse::success(new UserResource($request->user()->fresh()->load('seller')), 'Profile updated successfully.');
     }
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
