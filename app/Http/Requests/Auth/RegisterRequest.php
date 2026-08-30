@@ -20,6 +20,10 @@ class RegisterRequest extends FormRequest
             'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
             'terms_agreed' => ['required', 'accepted'],
+            'province_code' => ['required', 'string', 'exists:indonesia_provinces,code'],
+            'city_code' => ['required', 'string', 'exists:indonesia_cities,code'],
+            'district_code' => ['required', 'string', 'exists:indonesia_districts,code'],
+            'village_code' => ['required', 'string', 'exists:indonesia_villages,code'],
         ];
     }
 }

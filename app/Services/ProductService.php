@@ -38,6 +38,34 @@ class ProductService
         });
     }
 
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  UploadedFile[]  $images
+     */
+    public function update(Product $product, array $data, array $images = []): Product
+    {
+        return DB::transaction(function () use ($product, $data, $images) {
+            $product->update($data);
+
+            if ($images !== []) {
+                $nextSortOrder = $product->images()->max('sort_order') + 1;
+                $hasPrimary = $product->images()->where('is_primary', true)->exists();
+
+                foreach ($images as $index => $image) {
+                    $path = $image->store('products', 'public');
+
+                    $product->images()->create([
+                        'path' => $path,
+                        'is_primary' => ! $hasPrimary && $index === 0,
+                        'sort_order' => $nextSortOrder + $index,
+                    ]);
+                }
+            }
+
+            return $product->load('images');
+        });
+    }
+
     private function generateSlug(Store $store, string $name): string
     {
         $base = Str::slug($name);

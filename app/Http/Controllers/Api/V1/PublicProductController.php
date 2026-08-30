@@ -95,7 +95,8 @@ class PublicProductController extends Controller
         $product->load([
             'images',
             'category',
-            'store',
+            'store.seller',
+            'variants',
             'promotions' => function ($query) {
                 $query->where('is_active', true)
                     ->where('starts_at', '<=', now())

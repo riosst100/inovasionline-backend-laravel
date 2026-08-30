@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\GoogleLoginRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\UpdateAddressRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use App\Services\AuthService;
+use App\Services\ChatService;
 use App\Support\Responses\ApiResponse;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
@@ -21,11 +25,23 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    public function __construct(private readonly AuthService $authService) {}
+    public function __construct(
+        private readonly AuthService $authService,
+        private readonly ChatService $chatService,
+    ) {}
 
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = $this->authService->register($request->validated());
+
+        if ($this->wantsToken($request)) {
+            return ApiResponse::success(
+                $this->tokenPayload($user, $request),
+                'Registration successful.',
+                [],
+                201
+            );
+        }
 
         Auth::login($user);
         $request->session()->regenerate();
@@ -36,6 +52,16 @@ class AuthController extends Controller
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->only('email', 'password');
+
+        if ($this->wantsToken($request)) {
+            if (! Auth::once($credentials)) {
+                return ApiResponse::error('The provided credentials are incorrect.', [
+                    'email' => ['The provided credentials are incorrect.'],
+                ], 422);
+            }
+
+            return ApiResponse::success($this->tokenPayload(Auth::user(), $request), 'Login successful.');
+        }
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             return ApiResponse::error('The provided credentials are incorrect.', [
@@ -48,14 +74,61 @@ class AuthController extends Controller
         return ApiResponse::success(new UserResource(Auth::user()), 'Login successful.');
     }
 
+    public function google(GoogleLoginRequest $request): JsonResponse
+    {
+        try {
+            $user = $this->authService->loginWithGoogle($request->string('id_token')->toString());
+        } catch (\RuntimeException) {
+            return ApiResponse::error('The provided Google token is invalid.', [
+                'id_token' => ['The provided Google token is invalid.'],
+            ], 422);
+        }
+
+        if ($this->wantsToken($request)) {
+            return ApiResponse::success($this->tokenPayload($user, $request), 'Login successful.');
+        }
+
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return ApiResponse::success(new UserResource($user), 'Login successful.');
+    }
+
     public function logout(Request $request): JsonResponse
     {
+        if ($request->user()?->currentAccessToken() instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $request->user()->currentAccessToken()->delete();
+
+            return ApiResponse::success(null, 'Logout successful.');
+        }
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return ApiResponse::success(null, 'Logout successful.');
+    }
+
+    /**
+     * Mobile/native clients (Flutter) authenticate via Bearer token instead of
+     * cookie-based Sanctum sessions used by the Next.js SPA.
+     */
+    private function wantsToken(Request $request): bool
+    {
+        return $request->header('X-Client') === 'mobile';
+    }
+
+    private function tokenPayload(User $user, Request $request): array
+    {
+        $deviceName = $request->string('device_name')->toString() ?: 'mobile-device';
+
+        $token = $user->createToken($deviceName)->plainTextToken;
+
+        return [
+            'user' => new UserResource($user),
+            'token' => $token,
+        ];
     }
 
     public function user(Request $request): JsonResponse
@@ -68,6 +141,16 @@ class AuthController extends Controller
         $request->user()->update($request->validated());
 
         return ApiResponse::success(new UserResource($request->user()->fresh()->load('seller')), 'Profile updated successfully.');
+    }
+
+    public function updateAddress(UpdateAddressRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update($request->validated());
+
+        $this->chatService->syncMembershipsForUser($user->fresh());
+
+        return ApiResponse::success(new UserResource($user->fresh()->load('seller')), 'Address updated successfully.');
     }
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse

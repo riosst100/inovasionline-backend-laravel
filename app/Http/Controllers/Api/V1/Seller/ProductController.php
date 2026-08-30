@@ -41,4 +41,30 @@ class ProductController extends Controller
 
         return ApiResponse::success(new ProductResource($product), 'Product created successfully.', [], 201);
     }
+
+    public function show(Request $request, string $product): JsonResponse
+    {
+        /** @var Store $store */
+        $store = $request->attributes->get('store');
+
+        $product = $store->products()->with('images')->findOrFail($product);
+
+        return ApiResponse::success(new ProductResource($product), 'Product retrieved successfully.');
+    }
+
+    public function update(ProductRequest $request, string $product): JsonResponse
+    {
+        /** @var Store $store */
+        $store = $request->attributes->get('store');
+
+        $product = $store->products()->findOrFail($product);
+
+        $product = $this->productService->update(
+            $product,
+            $request->safe()->except('images'),
+            $request->file('images', [])
+        );
+
+        return ApiResponse::success(new ProductResource($product), 'Product updated successfully.');
+    }
 }

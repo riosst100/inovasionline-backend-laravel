@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Enums\UserRole;
+use App\Support\Enums\UserVerificationStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,8 +24,13 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'google_id',
         'role',
         'avatar_path',
+        'province_code',
+        'city_code',
+        'district_code',
+        'village_code',
     ];
 
     protected $hidden = [
@@ -52,6 +58,11 @@ class User extends Authenticatable
         return $this->hasMany(SellerApplication::class);
     }
 
+    public function userVerifications(): HasMany
+    {
+        return $this->hasMany(UserVerification::class);
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
@@ -65,5 +76,28 @@ class User extends Authenticatable
     public function isSeller(): bool
     {
         return in_array($this->role, [UserRole::SELLER_OWNER, UserRole::SELLER_STAFF], true);
+    }
+
+    public function isPlatformAdmin(): bool
+    {
+        return $this->role === UserRole::PLATFORM_ADMIN;
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->userVerifications()->where('status', UserVerificationStatus::APPROVED)->exists();
+    }
+
+    public function hasAddress(): bool
+    {
+        return $this->province_code !== null
+            && $this->city_code !== null
+            && $this->district_code !== null
+            && $this->village_code !== null;
+    }
+
+    public function chatThreadParticipations(): HasMany
+    {
+        return $this->hasMany(ChatThreadParticipant::class);
     }
 }

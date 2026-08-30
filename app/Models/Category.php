@@ -22,6 +22,7 @@ class Category extends Model
         'image_path',
         'sort_order',
         'is_active',
+        'created_by',
     ];
 
     protected function casts(): array
@@ -49,5 +50,10 @@ class Category extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

@@ -42,6 +42,16 @@ class PublicProductDetailResource extends JsonResource
 
             'images' => ProductImageResource::collection($this->whenLoaded('images')),
 
+            'variants' => $this->whenLoaded('variants', fn () => $this->variants
+                ->where('is_active', true)
+                ->values()
+                ->map(fn ($variant) => [
+                    'id' => $variant->id,
+                    'name' => $variant->name,
+                    'price' => (float) $variant->price,
+                    'stock' => $variant->stock,
+                ])),
+
             'category' => $this->whenLoaded('category', fn () => [
                 'id' => $this->category->id,
                 'name' => $this->category->name,
@@ -55,6 +65,7 @@ class PublicProductDetailResource extends JsonResource
                 'logo_url' => $this->store->logo_path ? asset('storage/'.$this->store->logo_path) : null,
                 'city' => $this->store->city,
                 'delivery_available' => $this->store->delivery_available,
+                'owner_user_id' => $this->store->seller?->user_id,
             ]),
 
             'created_at' => $this->created_at,
