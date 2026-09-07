@@ -2,6 +2,7 @@
 
 use App\Support\Responses\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,7 +16,17 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['api', 'auth:sanctum']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
+        // This is an API-only app with no named "login" route. Without this,
+        // Authenticate::redirectTo() calls route('login') for any request
+        // that doesn't satisfy expectsJson(), throwing a RouteNotFoundException
+        // instead of the clean 401 JSON response handled below.
+        Authenticate::redirectUsing(fn () => null);
+
         $middleware->statefulApi();
 
         $middleware->api(prepend: [

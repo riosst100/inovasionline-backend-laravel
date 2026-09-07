@@ -32,17 +32,43 @@ class ChatThreadResource extends JsonResource
                 'id' => $otherUser->id,
                 'name' => $otherUser->name,
                 'avatar_url' => $otherUser->avatar_path ? asset('storage/'.$otherUser->avatar_path) : null,
+                'is_seller' => $otherUser->isSeller(),
             ] : null,
+            'latest_message' => $this->whenLoaded('latestMessage', fn () => $this->latestMessage ? [
+                'body' => $this->latestMessage->body,
+                'sender_id' => $this->latestMessage->sender_id,
+                'sender_name' => $this->latestMessage->sender?->name,
+                'created_at' => $this->latestMessage->created_at,
+            ] : null),
+            'participant_count' => $this->when($this->type !== ChatThreadType::DM, fn () => $this->participants_count),
+            'is_favorite' => $this->whenLoaded('viewerParticipant', fn () => $this->viewerParticipant?->is_favorite ?? false),
+            'is_unread' => $this->whenLoaded('viewerParticipant', fn () => $this->resolveIsUnread($viewer)),
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    private function resolveIsUnread(?object $viewer): bool
+    {
+        $latestMessage = $this->latestMessage;
+        if ($latestMessage === null) {
+            return false;
+        }
+
+        if ($viewer && $latestMessage->sender_id === $viewer->id) {
+            return false;
+        }
+
+        $lastReadAt = $this->viewerParticipant?->last_read_at;
+
+        return $lastReadAt === null || $lastReadAt->lt($latestMessage->created_at);
     }
 
     private function resolveTitle(?object $otherUser): string
     {
         return match ($this->type) {
-            ChatThreadType::GLOBAL => 'GLOBAL - Grup Chat',
+            ChatThreadType::GLOBAL => 'Warga +62',
             ChatThreadType::OFFICIAL => 'Inovasi Online',
-            ChatThreadType::REGION => "{$this->resolveRegionName()} - Grup Chat",
+            ChatThreadType::REGION => $this->resolveRegionName(),
             ChatThreadType::DM => $otherUser?->name ?? 'Percakapan',
         };
     }
@@ -57,6 +83,17 @@ class ChatThreadResource extends JsonResource
             default => null,
         };
 
-        return $model?->name ?? 'Wilayah';
+        $name = str($model?->name ?? 'Wilayah')->title()->toString();
+
+        // City names already include their own prefix (e.g. "Kabupaten
+        // Brebes", "Kota Jakarta Pusat"), so no extra prefix is added.
+        $prefix = match ($this->region_level) {
+            ChatRegionLevel::PROVINCE => 'Provinsi',
+            ChatRegionLevel::DISTRICT => 'Kecamatan',
+            ChatRegionLevel::VILLAGE => 'Desa',
+            default => '',
+        };
+
+        return trim("{$prefix} {$name}");
     }
 }

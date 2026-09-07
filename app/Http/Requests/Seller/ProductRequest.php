@@ -46,6 +46,21 @@ class ProductRequest extends FormRequest
 
             'images' => ['nullable', 'array', 'max:8'],
             'images.*' => ['image', 'max:4096'],
+
+            'existing_images' => ['nullable', 'array'],
+            'existing_images.*' => ['string', 'exists:product_images,id'],
         ];
+    }
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $existingCount = count($this->input('existing_images', []));
+            $newCount = count($this->file('images', []));
+
+            if ($existingCount + $newCount === 0) {
+                $validator->errors()->add('images', 'Produk harus memiliki minimal satu gambar.');
+            }
+        });
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ChatThread extends Model
 {
@@ -35,9 +36,24 @@ class ChatThread extends Model
         return $this->hasMany(ChatMessage::class, 'thread_id');
     }
 
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(ChatMessage::class, 'thread_id')->latestOfMany();
+    }
+
     public function participants(): HasMany
     {
         return $this->hasMany(ChatThreadParticipant::class, 'thread_id');
+    }
+
+    /**
+     * The requesting user's own participant row (unread/favorite state).
+     * Populated manually via setRelation in ChatService::threadsForUser
+     * since it depends on the authenticated viewer, not a static FK.
+     */
+    public function viewerParticipant(): HasOne
+    {
+        return $this->hasOne(ChatThreadParticipant::class, 'thread_id');
     }
 
     public function userOne(): BelongsTo

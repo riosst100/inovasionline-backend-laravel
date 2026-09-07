@@ -16,6 +16,12 @@ class ChatMessageResource extends JsonResource
             'sender_name' => $this->sender?->name,
             'is_official' => $this->sender_id === null,
             'body' => $this->body,
+            'reply_to' => $this->whenLoaded('replyTo', fn () => $this->replyTo ? [
+                'id' => $this->replyTo->id,
+                'sender_id' => $this->replyTo->sender_id,
+                'sender_name' => $this->replyTo->sender_id === null ? 'Inovasi Online' : $this->replyTo->sender?->name,
+                'body' => $this->replyTo->body,
+            ] : null),
             'created_at' => $this->created_at,
         ];
     }

@@ -94,8 +94,18 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function searchResultClicks(): HasMany
+    {
+        return $this->hasMany(SearchResultClick::class);
+    }
+
     public function promotions(): BelongsToMany
     {
         return $this->belongsToMany(Promotion::class, 'promotion_products')->using(PromotionProduct::class);
+    }
+
+    public function posts(): BelongsToMany
+    {
+        return $this->belongsToMany(Post::class, 'post_products');
     }
 }

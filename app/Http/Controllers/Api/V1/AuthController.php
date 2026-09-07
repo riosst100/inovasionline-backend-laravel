@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
@@ -138,9 +139,19 @@ class AuthController extends Controller
 
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
-        $request->user()->update($request->validated());
+        $user = $request->user();
+        $data = $request->safe()->except('avatar');
 
-        return ApiResponse::success(new UserResource($request->user()->fresh()->load('seller')), 'Profile updated successfully.');
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar_path) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+            $data['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
+        }
+
+        $user->update($data);
+
+        return ApiResponse::success(new UserResource($user->fresh()->load('seller')), 'Profile updated successfully.');
     }
 
     public function updateAddress(UpdateAddressRequest $request): JsonResponse

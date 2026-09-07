@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PaymentMethodResource;
 use App\Http\Resources\PublicProductResource;
 use App\Http\Resources\PublicStoreDetailResource;
 use App\Http\Resources\PublicStoreResource;
+use App\Http\Resources\ShippingMethodResource;
 use App\Models\Store;
+use App\Services\ShippingRateResolver;
 use App\Support\Enums\OrderStatus;
 use App\Support\Enums\ProductStatus;
+use App\Support\Enums\ShippingRateType;
 use App\Support\Enums\StoreStatus;
 use App\Support\Responses\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,6 +82,49 @@ class PublicStoreController extends Controller
             'per_page' => $products->perPage(),
             'total' => $products->total(),
         ]);
+    }
+
+    public function paymentMethods(Request $request, Store $store): JsonResponse
+    {
+        $methods = $store->paymentMethods()->where('is_enabled', true)->orderBy('sort_order')->get();
+
+        return ApiResponse::success(PaymentMethodResource::collection($methods), 'Payment methods retrieved successfully.');
+    }
+
+    public function shippingMethods(Request $request, Store $store, ShippingRateResolver $resolver): JsonResponse
+    {
+        $request->validate([
+            'district_code' => ['required', 'string'],
+            'village_code' => ['nullable', 'string'],
+        ]);
+
+        $districtCode = $request->string('district_code')->toString();
+        $villageCode = $request->filled('village_code') ? $request->string('village_code')->toString() : null;
+
+        $methods = $store->shippingMethods()
+            ->where('is_enabled', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->filter(function ($method) use ($resolver, $districtCode, $villageCode) {
+                if ($method->rate_type === ShippingRateType::FLAT) {
+                    $method->resolved_fee = (float) $method->base_fee;
+
+                    return true;
+                }
+
+                $fee = $resolver->resolveFee($method, $districtCode, $villageCode);
+
+                if ($fee === null) {
+                    return false;
+                }
+
+                $method->resolved_fee = $fee;
+
+                return true;
+            })
+            ->values();
+
+        return ApiResponse::success(ShippingMethodResource::collection($methods), 'Shipping methods retrieved successfully.');
     }
 
     private function applyNearest(Builder $query, string $cityCode): void

@@ -86,4 +86,21 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    /**
+     * @var array<string, list<string>>
+     */
+    private const TRANSITIONS = [
+        'pending' => ['accepted', 'cancelled'],
+        'accepted' => ['processing', 'cancelled'],
+        'processing' => ['ready', 'cancelled'],
+        'ready' => ['completed'],
+        'completed' => [],
+        'cancelled' => [],
+    ];
+
+    public function canTransitionTo(OrderStatus $next): bool
+    {
+        return in_array($next->value, self::TRANSITIONS[$this->status->value] ?? [], true);
+    }
 }

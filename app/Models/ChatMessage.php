@@ -14,6 +14,7 @@ class ChatMessage extends Model
     protected $fillable = [
         'thread_id',
         'sender_id',
+        'reply_to_id',
         'body',
     ];
 
@@ -25,5 +26,10 @@ class ChatMessage extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(ChatMessage::class, 'reply_to_id');
     }
 }

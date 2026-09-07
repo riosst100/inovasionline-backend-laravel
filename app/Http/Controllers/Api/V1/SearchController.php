@@ -7,6 +7,7 @@ use App\Http\Resources\PublicProductResource;
 use App\Http\Resources\PublicStoreResource;
 use App\Models\Product;
 use App\Models\SearchLog;
+use App\Models\SearchResultClick;
 use App\Models\Store;
 use App\Support\Enums\OrderStatus;
 use App\Support\Enums\ProductStatus;
@@ -33,11 +34,11 @@ class SearchController extends Controller
 
         $query->where(function (Builder $query) use ($column, $words) {
             foreach ($words as $word) {
-                $query->orWhere($column, 'like', '%'.$word.'%');
+                $query->orWhere($column, 'ilike', '%'.$word.'%');
             }
         });
 
-        return $query->orderByRaw("case when {$column} like ? then 0 else 1 end", ['%'.$keyword.'%']);
+        return $query->orderByRaw("case when {$column} ilike ? then 0 else 1 end", ['%'.$keyword.'%']);
     }
 
     public function suggestions(Request $request): JsonResponse
@@ -102,5 +103,44 @@ class SearchController extends Controller
             'products' => PublicProductResource::collection($products),
             'stores' => PublicStoreResource::collection($stores),
         ], 'Search results retrieved successfully.');
+    }
+
+    public function popular(Request $request): JsonResponse
+    {
+        $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        $limit = $request->integer('limit', 12);
+
+        $products = Product::query()
+            ->where('status', ProductStatus::ACTIVE)
+            ->withCount('searchResultClicks')
+            ->having('search_result_clicks_count', '>', 0)
+            ->with(['images' => fn ($query) => $query->where('is_primary', true)->orWhere('sort_order', 0), 'store'])
+            ->orderByDesc('search_result_clicks_count')
+            ->limit($limit)
+            ->get();
+
+        return ApiResponse::success(
+            PublicProductResource::collection($products),
+            'Popular search results retrieved successfully.'
+        );
+    }
+
+    public function click(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'product_id' => ['required', 'string', 'exists:products,id'],
+            'keyword' => ['required', 'string', 'max:100'],
+        ]);
+
+        SearchResultClick::create([
+            'product_id' => $validated['product_id'],
+            'user_id' => $request->user()?->id,
+            'keyword' => mb_strtolower(trim($validated['keyword'])),
+        ]);
+
+        return ApiResponse::success(null, 'Search result click recorded successfully.');
     }
 }

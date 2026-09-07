@@ -16,6 +16,7 @@ class ChatThreadParticipant extends Model
         'user_id',
         'joined_at',
         'last_read_at',
+        'is_favorite',
     ];
 
     protected function casts(): array
@@ -23,6 +24,7 @@ class ChatThreadParticipant extends Model
         return [
             'joined_at' => 'datetime',
             'last_read_at' => 'datetime',
+            'is_favorite' => 'boolean',
         ];
     }
 

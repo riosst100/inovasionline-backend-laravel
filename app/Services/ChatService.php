@@ -96,9 +96,20 @@ class ChatService
                     ->orWhere('user_one_id', $user->id)
                     ->orWhere('user_two_id', $user->id);
             })
-            ->with(['userOne', 'userTwo'])
+            ->with(['userOne', 'userTwo', 'latestMessage.sender'])
+            ->withCount('participants')
             ->latest('updated_at')
             ->get();
+
+        $viewerParticipants = ChatThreadParticipant::query()
+            ->where('user_id', $user->id)
+            ->whereIn('thread_id', $threads->pluck('id'))
+            ->get()
+            ->keyBy('thread_id');
+
+        foreach ($threads as $thread) {
+            $thread->setRelation('viewerParticipant', $viewerParticipants->get($thread->id));
+        }
 
         return $threads->sort(function (ChatThread $a, ChatThread $b) {
             $typeCompare = self::TYPE_SORT_ORDER[$a->type->value] <=> self::TYPE_SORT_ORDER[$b->type->value];
@@ -125,11 +136,38 @@ class ChatService
         sort($ids);
         [$userOneId, $userTwoId] = $ids;
 
-        return ChatThread::firstOrCreate([
+        $thread = ChatThread::firstOrCreate([
             'type' => ChatThreadType::DM->value,
             'user_one_id' => $userOneId,
             'user_two_id' => $userTwoId,
         ]);
+
+        $this->joinThread($user, $thread);
+        $this->joinThread($other, $thread);
+
+        return $thread;
+    }
+
+    public function markAsRead(User $user, ChatThread $thread): void
+    {
+        $participant = ChatThreadParticipant::firstOrCreate(
+            ['thread_id' => $thread->id, 'user_id' => $user->id],
+            ['joined_at' => now()]
+        );
+
+        $participant->update(['last_read_at' => now()]);
+    }
+
+    public function toggleFavorite(User $user, ChatThread $thread): bool
+    {
+        $participant = ChatThreadParticipant::firstOrCreate(
+            ['thread_id' => $thread->id, 'user_id' => $user->id],
+            ['joined_at' => now()]
+        );
+
+        $participant->update(['is_favorite' => ! $participant->is_favorite]);
+
+        return $participant->is_favorite;
     }
 
     public function canPost(User $user, ChatThread $thread): bool
@@ -157,15 +195,20 @@ class ChatService
             || in_array($user->id, [$thread->user_one_id, $thread->user_two_id], true);
     }
 
-    public function sendMessage(User $sender, ChatThread $thread, string $body): ChatMessage
+    public function sendMessage(User $sender, ChatThread $thread, string $body, ?string $replyToId = null): ChatMessage
     {
         if (! $this->canPost($sender, $thread)) {
             throw new RuntimeException('You are not allowed to post in this conversation.');
         }
 
+        if ($replyToId !== null && ! $thread->messages()->whereKey($replyToId)->exists()) {
+            throw new RuntimeException('The message being replied to does not belong to this conversation.');
+        }
+
         $message = ChatMessage::create([
             'thread_id' => $thread->id,
             'sender_id' => $sender->id,
+            'reply_to_id' => $replyToId,
             'body' => $body,
         ]);
 
@@ -177,8 +220,18 @@ class ChatService
     public function messages(ChatThread $thread, int $perPage = 20): LengthAwarePaginator
     {
         return $thread->messages()
-            ->with('sender')
+            ->with(['sender', 'replyTo.sender'])
             ->latest('created_at')
+            ->paginate($perPage);
+    }
+
+    public function participants(ChatThread $thread, int $perPage = 30): LengthAwarePaginator
+    {
+        return $thread->participants()
+            ->with('user')
+            ->join('users', 'users.id', '=', 'chat_thread_participants.user_id')
+            ->orderBy('users.name')
+            ->select('chat_thread_participants.*')
             ->paginate($perPage);
     }
 
@@ -188,7 +241,7 @@ class ChatService
     public function latestGuestMessages(ChatThread $thread): Collection
     {
         return $thread->messages()
-            ->with('sender')
+            ->with(['sender', 'replyTo.sender'])
             ->latest('created_at')
             ->limit(self::GUEST_MESSAGE_LIMIT)
             ->get();
