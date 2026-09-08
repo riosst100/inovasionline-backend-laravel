@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Admin\ShippingRateTemplateController as AdminShi
 use App\Http\Controllers\Api\V1\Admin\ShippingRateTemplateRowController as AdminShippingRateTemplateRowController;
 use App\Http\Controllers\Api\V1\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\V1\Admin\UserVerificationController as AdminUserVerificationController;
+use App\Http\Controllers\Api\V1\AppVersionController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BannerController;
 use App\Http\Controllers\Api\V1\CartController;
@@ -73,6 +74,8 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/categories/{slug}', [CategoryController::class, 'show']);
+
+    Route::get('/app-version/latest', [AppVersionController::class, 'latest']);
 
     Route::prefix('products')->group(function () {
         Route::get('/flash-sale', [PublicProductController::class, 'flashSale']);
