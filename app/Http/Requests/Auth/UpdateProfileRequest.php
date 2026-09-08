@@ -22,7 +22,7 @@ class UpdateProfileRequest extends FormRequest
                 'max:20',
                 Rule::unique('users', 'phone')->ignore($this->user()->id),
             ],
-            'avatar' => ['nullable', 'image', 'max:4096'],
+            'avatar' => ['nullable', 'image', 'max:10240'],
         ];
     }
 }
