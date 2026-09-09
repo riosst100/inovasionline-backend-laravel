@@ -39,4 +39,9 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
     ],
 
+    'whatsapp_otp' => [
+        'base_url' => env('WHATSAPP_OTP_BASE_URL', 'http://127.0.0.1:3100'),
+        'api_key' => env('WHATSAPP_OTP_API_KEY'),
+    ],
+
 ];

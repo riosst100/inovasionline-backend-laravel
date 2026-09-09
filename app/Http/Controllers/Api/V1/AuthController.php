@@ -8,12 +8,16 @@ use App\Http\Requests\Auth\GoogleLoginRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\SendPhoneOtpRequest;
 use App\Http\Requests\Auth\UpdateAddressRequest;
 use App\Http\Requests\Auth\UpdateProfileRequest;
+use App\Http\Requests\Auth\VerifyPhoneRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\AuthService;
 use App\Services\ChatService;
+use App\Services\WhatsAppOtpService;
+use App\Support\PhoneNumber;
 use App\Support\Responses\ApiResponse;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
@@ -29,13 +33,25 @@ class AuthController extends Controller
     public function __construct(
         private readonly AuthService $authService,
         private readonly ChatService $chatService,
+        private readonly WhatsAppOtpService $whatsAppOtpService,
     ) {}
 
     public function register(RegisterRequest $request): JsonResponse
     {
+        $phone = $request->string('phone')->toString();
+
+        if ($this->wantsToken($request) && ! $this->whatsAppOtpService->isRecentlyVerified($phone)) {
+            return ApiResponse::error('Phone number is not verified.', [
+                'phone' => ['Please verify this phone number via WhatsApp OTP first.'],
+            ], 422);
+        }
+
         $user = $this->authService->register($request->validated());
 
         if ($this->wantsToken($request)) {
+            $user->forceFill(['phone_verified_at' => now()])->save();
+            $this->whatsAppOtpService->clearVerification($phone);
+
             return ApiResponse::success(
                 $this->tokenPayload($user, $request),
                 'Registration successful.',
@@ -50,14 +66,46 @@ class AuthController extends Controller
         return ApiResponse::success(new UserResource($user), 'Registration successful.', [], 201);
     }
 
+    public function sendPhoneOtp(SendPhoneOtpRequest $request): JsonResponse
+    {
+        $phone = $request->string('phone')->toString();
+
+        if (User::where('phone', $phone)->exists()) {
+            return ApiResponse::error('This phone number is already registered.', [
+                'phone' => ['This phone number is already registered.'],
+            ], 422);
+        }
+
+        $this->whatsAppOtpService->send($phone);
+
+        return ApiResponse::success(null, 'Verification code sent.');
+    }
+
+    public function verifyPhoneOtp(VerifyPhoneRequest $request): JsonResponse
+    {
+        $verified = $this->whatsAppOtpService->verify($request->string('phone')->toString(), $request->string('code')->toString());
+
+        if (! $verified) {
+            return ApiResponse::error('Invalid or expired verification code.', [
+                'code' => ['Invalid or expired verification code.'],
+            ], 422);
+        }
+
+        return ApiResponse::success(null, 'Phone number verified.');
+    }
+
     public function login(LoginRequest $request): JsonResponse
     {
-        $credentials = $request->only('email', 'password');
+        $identifier = $request->identifier();
+        $field = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+        $value = $field === 'phone' ? PhoneNumber::normalize($identifier) : $identifier;
+
+        $credentials = [$field => $value, 'password' => $request->string('password')->toString()];
 
         if ($this->wantsToken($request)) {
             if (! Auth::once($credentials)) {
                 return ApiResponse::error('The provided credentials are incorrect.', [
-                    'email' => ['The provided credentials are incorrect.'],
+                    'login' => ['The provided credentials are incorrect.'],
                 ], 422);
             }
 
@@ -66,7 +114,7 @@ class AuthController extends Controller
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             return ApiResponse::error('The provided credentials are incorrect.', [
-                'email' => ['The provided credentials are incorrect.'],
+                'login' => ['The provided credentials are incorrect.'],
             ], 422);
         }
 

@@ -50,6 +50,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:6,1');
         Route::post('/reset-password', [AuthController::class, 'resetPassword'])
             ->middleware('throttle:6,1');
+        Route::post('/send-phone-otp', [AuthController::class, 'sendPhoneOtp'])
+            ->middleware('throttle:3,1');
+        Route::post('/verify-phone-otp', [AuthController::class, 'verifyPhoneOtp'])
+            ->middleware('throttle:6,1');
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);

@@ -19,14 +19,16 @@ class AuthService
         return DB::transaction(function () use ($data) {
             $user = User::create([
                 'name' => $data['name'],
-                'email' => $data['email'],
+                'email' => $data['email'] ?? null,
                 'phone' => $data['phone'],
+                'gender' => $data['gender'] ?? null,
+                'date_of_birth' => $data['date_of_birth'] ?? null,
                 'password' => Hash::make($data['password']),
                 'role' => UserRole::CUSTOMER,
-                'province_code' => $data['province_code'],
-                'city_code' => $data['city_code'],
-                'district_code' => $data['district_code'],
-                'village_code' => $data['village_code'],
+                'province_code' => $data['province_code'] ?? null,
+                'city_code' => $data['city_code'] ?? null,
+                'district_code' => $data['district_code'] ?? null,
+                'village_code' => $data['village_code'] ?? null,
             ]);
 
             $this->chatService->syncMembershipsForUser($user);
