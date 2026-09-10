@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Admin\BannerController as AdminBannerController;
 use App\Http\Controllers\Api\V1\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\V1\Admin\FlashSaleSlotController as AdminFlashSaleSlotController;
+use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\PaymentMethodController as AdminPaymentMethodController;
 use App\Http\Controllers\Api\V1\Admin\SellerApplicationController as AdminSellerApplicationController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Api\V1\CartController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CheckoutController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\FlashSaleSlotController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PostController;
@@ -73,6 +75,11 @@ Route::prefix('v1')->group(function () {
         Route::prefix('verifications')->group(function () {
             Route::post('/', [UserVerificationController::class, 'store']);
             Route::get('/me', [UserVerificationController::class, 'show']);
+        });
+
+        Route::prefix('device-tokens')->group(function () {
+            Route::post('/', [DeviceTokenController::class, 'store']);
+            Route::delete('/', [DeviceTokenController::class, 'destroy']);
         });
     });
 
@@ -246,6 +253,8 @@ Route::prefix('v1')->group(function () {
             Route::put('/{category}', [AdminCategoryController::class, 'update']);
             Route::post('/{category}/approve', [AdminCategoryController::class, 'approve']);
         });
+
+        Route::post('/notifications/broadcast', [AdminNotificationController::class, 'broadcast']);
 
         Route::prefix('orders')->group(function () {
             Route::get('/', [AdminOrderController::class, 'index']);

@@ -17,6 +17,8 @@ class ChatService
 {
     public const GUEST_MESSAGE_LIMIT = 10;
 
+    public function __construct(private readonly NotificationService $notificationService) {}
+
     public function globalThread(): ChatThread
     {
         return ChatThread::firstOrCreate(['type' => ChatThreadType::GLOBAL->value]);
@@ -214,7 +216,30 @@ class ChatService
 
         $thread->touch();
 
+        $this->notifyRecipientOfDirectMessage($sender, $thread, $message);
+
         return $message;
+    }
+
+    private function notifyRecipientOfDirectMessage(User $sender, ChatThread $thread, ChatMessage $message): void
+    {
+        if ($thread->type !== ChatThreadType::DM) {
+            return;
+        }
+
+        $recipientId = $thread->user_one_id === $sender->id ? $thread->user_two_id : $thread->user_one_id;
+        $recipient = User::find($recipientId);
+
+        if ($recipient === null) {
+            return;
+        }
+
+        $this->notificationService->sendToUser(
+            $recipient,
+            $sender->name,
+            $message->body,
+            ['type' => 'chat', 'thread_id' => $thread->id]
+        );
     }
 
     public function messages(ChatThread $thread, int $perPage = 20): LengthAwarePaginator

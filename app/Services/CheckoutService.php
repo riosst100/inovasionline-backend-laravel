@@ -25,6 +25,7 @@ class CheckoutService
     public function __construct(
         private readonly CartService $cartService,
         private readonly ShippingRateResolver $rateResolver,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function checkout(User $user, array $validated): Order
@@ -143,8 +144,26 @@ class CheckoutService
 
             CartItem::whereIn('id', $items->pluck('id'))->delete();
 
-            return $order->fresh(['items', 'paymentMethod', 'shippingMethod', 'store']);
+            $order = $order->fresh(['items', 'paymentMethod', 'shippingMethod', 'store']);
+
+            $this->notifyStoreOfNewOrder($order);
+
+            return $order;
         });
+    }
+
+    private function notifyStoreOfNewOrder(Order $order): void
+    {
+        $memberUserIds = $order->store->members()->pluck('user_id');
+
+        foreach (User::whereIn('id', $memberUserIds)->get() as $member) {
+            $this->notificationService->sendToUser(
+                $member,
+                'Pesanan baru masuk',
+                "Pesanan {$order->order_number} senilai Rp".number_format((float) $order->grand_total, 0, ',', '.').' menunggu diproses.',
+                ['type' => 'order', 'order_id' => $order->id]
+            );
+        }
     }
 
     private function generateOrderNumber(): string

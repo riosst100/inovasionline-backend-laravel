@@ -7,6 +7,7 @@ use App\Http\Requests\Seller\UpdateOrderStatusRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\Store;
+use App\Services\NotificationService;
 use App\Services\OrderCancellationService;
 use App\Support\Enums\OrderStatus;
 use App\Support\Enums\PaymentStatus;
@@ -17,7 +18,10 @@ use RuntimeException;
 
 class OrderController extends Controller
 {
-    public function __construct(private readonly OrderCancellationService $cancellationService) {}
+    public function __construct(
+        private readonly OrderCancellationService $cancellationService,
+        private readonly NotificationService $notificationService,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -60,6 +64,8 @@ class OrderController extends Controller
                 return ApiResponse::error($e->getMessage(), [], 422);
             }
 
+            $this->notifyBuyerOfStatusChange($order);
+
             return ApiResponse::success(new OrderResource($order), 'Order cancelled successfully.');
         }
 
@@ -83,7 +89,31 @@ class OrderController extends Controller
             ...($timestampField ? [$timestampField => now()] : []),
         ]);
 
-        return ApiResponse::success(new OrderResource($order->fresh()), 'Order status updated successfully.');
+        $order = $order->fresh();
+
+        $this->notifyBuyerOfStatusChange($order);
+
+        return ApiResponse::success(new OrderResource($order), 'Order status updated successfully.');
+    }
+
+    private function notifyBuyerOfStatusChange(Order $order): void
+    {
+        $statusLabels = [
+            OrderStatus::ACCEPTED->value => 'diterima penjual',
+            OrderStatus::PROCESSING->value => 'sedang diproses',
+            OrderStatus::READY->value => 'siap dikirim/diambil',
+            OrderStatus::COMPLETED->value => 'selesai',
+            OrderStatus::CANCELLED->value => 'dibatalkan',
+        ];
+
+        $label = $statusLabels[$order->status->value] ?? $order->status->value;
+
+        $this->notificationService->sendToUser(
+            $order->user,
+            'Status pesanan diperbarui',
+            "Pesanan {$order->order_number} {$label}.",
+            ['type' => 'order', 'order_id' => $order->id]
+        );
     }
 
     public function markAsPaid(Request $request, Order $order): JsonResponse
