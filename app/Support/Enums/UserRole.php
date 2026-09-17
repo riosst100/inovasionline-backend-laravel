@@ -8,4 +8,5 @@ enum UserRole: string
     case SELLER_OWNER = 'seller_owner';
     case SELLER_STAFF = 'seller_staff';
     case PLATFORM_ADMIN = 'platform_admin';
+    case PHOTOGRAPHER = 'photographer';
 }

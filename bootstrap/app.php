@@ -42,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'store.owner' => \App\Http\Middleware\EnsureStoreOwnership::class,
             'seller' => \App\Http\Middleware\EnsureUserIsSeller::class,
             'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'photographer' => \App\Http\Middleware\EnsureUserIsPhotographer::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

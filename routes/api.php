@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Admin\FlashSaleSlotController as AdminFlashSaleS
 use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\V1\Admin\PaymentMethodController as AdminPaymentMethodController;
+use App\Http\Controllers\Api\V1\Admin\PhotographerApplicationController as AdminPhotographerApplicationController;
 use App\Http\Controllers\Api\V1\Admin\SellerApplicationController as AdminSellerApplicationController;
 use App\Http\Controllers\Api\V1\Admin\ShippingMethodController as AdminShippingMethodController;
 use App\Http\Controllers\Api\V1\Admin\ShippingRateTemplateController as AdminShippingRateTemplateController;
@@ -20,8 +21,15 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CheckoutController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
+use App\Http\Controllers\Api\V1\FaceProfileController;
 use App\Http\Controllers\Api\V1\FlashSaleSlotController;
+use App\Http\Controllers\Api\V1\MatchedPhotoController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\Photographer\PhotoController as PhotographerPhotoController;
+use App\Http\Controllers\Api\V1\Photographer\PhotoEventController as PhotographerPhotoEventController;
+use App\Http\Controllers\Api\V1\PhotographerApplicationController;
+use App\Http\Controllers\Api\V1\PhotoController;
+use App\Http\Controllers\Api\V1\PhotoPurchaseController;
 use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\PublicProductController;
 use App\Http\Controllers\Api\V1\PublicStoreController;
@@ -70,6 +78,24 @@ Route::prefix('v1')->group(function () {
         Route::prefix('seller-applications')->group(function () {
             Route::post('/', [SellerApplicationController::class, 'store']);
             Route::get('/me', [SellerApplicationController::class, 'show']);
+        });
+
+        Route::prefix('potocandid')->group(function () {
+            Route::post('/face-profile', [FaceProfileController::class, 'store']);
+            Route::get('/face-profile', [FaceProfileController::class, 'show']);
+
+            Route::get('/photos', [PhotoController::class, 'index']);
+            Route::get('/photos/{photo}', [PhotoController::class, 'show']);
+
+            Route::get('/matched-photos', [MatchedPhotoController::class, 'index']);
+
+            Route::get('/purchases', [PhotoPurchaseController::class, 'index']);
+            Route::post('/purchases', [PhotoPurchaseController::class, 'store']);
+
+            Route::prefix('photographer-applications')->group(function () {
+                Route::post('/', [PhotographerApplicationController::class, 'store']);
+                Route::get('/me', [PhotographerApplicationController::class, 'show']);
+            });
         });
 
         Route::prefix('verifications')->group(function () {
@@ -217,6 +243,21 @@ Route::prefix('v1')->group(function () {
         });
     });
 
+    Route::prefix('photographer')->middleware(['auth:sanctum', 'photographer'])->group(function () {
+        Route::prefix('events')->group(function () {
+            Route::get('/', [PhotographerPhotoEventController::class, 'index']);
+            Route::post('/', [PhotographerPhotoEventController::class, 'store']);
+            Route::post('/{event}', [PhotographerPhotoEventController::class, 'update']);
+            Route::delete('/{event}', [PhotographerPhotoEventController::class, 'destroy']);
+        });
+
+        Route::prefix('photos')->group(function () {
+            Route::get('/', [PhotographerPhotoController::class, 'index']);
+            Route::post('/', [PhotographerPhotoController::class, 'store']);
+            Route::delete('/{photo}', [PhotographerPhotoController::class, 'destroy']);
+        });
+    });
+
     Route::prefix('admin')->middleware(['auth:sanctum', 'admin'])->group(function () {
         Route::get('/users', [AdminUserController::class, 'index']);
 
@@ -224,6 +265,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [AdminSellerApplicationController::class, 'index']);
             Route::post('/{sellerApplication}/approve', [AdminSellerApplicationController::class, 'approve']);
             Route::post('/{sellerApplication}/reject', [AdminSellerApplicationController::class, 'reject']);
+        });
+
+        Route::prefix('photographer-applications')->group(function () {
+            Route::get('/', [AdminPhotographerApplicationController::class, 'index']);
+            Route::post('/{photographerApplication}/approve', [AdminPhotographerApplicationController::class, 'approve']);
+            Route::post('/{photographerApplication}/reject', [AdminPhotographerApplicationController::class, 'reject']);
         });
 
         Route::prefix('verifications')->group(function () {

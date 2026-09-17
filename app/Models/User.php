@@ -8,6 +8,7 @@ use App\Support\Enums\UserVerificationStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -80,6 +81,34 @@ class User extends Authenticatable
     public function storeMemberships(): HasMany
     {
         return $this->hasMany(StoreMember::class);
+    }
+
+    public function photographer(): HasOne
+    {
+        return $this->hasOne(Photographer::class);
+    }
+
+    public function photographerApplications(): HasMany
+    {
+        return $this->hasMany(PhotographerApplication::class);
+    }
+
+    public function faceProfile(): HasOne
+    {
+        return $this->hasOne(UserFaceProfile::class);
+    }
+
+    public function matchedPhotos(): BelongsToMany
+    {
+        return $this->belongsToMany(Photo::class, 'photo_matches')
+            ->using(PhotoMatch::class)
+            ->withPivot(['confidence_score', 'matched_face_index'])
+            ->withTimestamps();
+    }
+
+    public function photoPurchases(): HasMany
+    {
+        return $this->hasMany(PhotoPurchase::class);
     }
 
     public function isSeller(): bool
